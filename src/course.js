@@ -12,9 +12,7 @@ if (!getUser()) {
   window.location.href = redirect;
 }
 
-const course = courseId
-  ? courses.find((item) => item.id === courseId)
-  : null;
+const course = courseId ? courses.find((item) => item.id === courseId) : null;
 
 const buildLessonItem = (courseSlug, lesson) => {
   const gameCount = Array.isArray(lesson.games) ? lesson.games.length : 0;
