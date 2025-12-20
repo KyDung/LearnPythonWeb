@@ -1,4 +1,9 @@
 import Phaser from "phaser";
+import { setupCodeFullscreen } from "../../../shared/codeFullscreen.js";
+import {
+  isPyodideTimeout,
+  withPyodideTimeout,
+} from "../../../shared/pyodideTimeout.js";
 
 const ORIGINAL_NAME = "Ca sĩ Sơn Ca";
 const BROKEN_NAME = "Ca sĩ Vịt Ca";
@@ -38,7 +43,10 @@ def fix_name(text):
     # Kết thúc
     return result
 </textarea>
-        <button class="primary" id="submit-code">Submit</button>
+        <div class="code-actions">
+          <button class="primary" id="submit-code">Submit</button>
+          <button class="code-toggle" type="button">Phóng to</button>
+        </div>
       </div>
       <div class="lesson-panel output-panel" id="output"></div>
     </aside>
@@ -77,6 +85,8 @@ export default function initGame(root, { pyodide } = {}) {
     codeInput.value = `${value.slice(0, start)}    ${value.slice(end)}`;
     codeInput.selectionStart = codeInput.selectionEnd = start + 4;
   });
+
+  setupCodeFullscreen(root);
 
   const startPhaser = () => {
     if (phaserGame) {
@@ -174,13 +184,15 @@ export default function initGame(root, { pyodide } = {}) {
     resetOutput();
     status.textContent = "Đang chấm bài...";
     try {
-      pyodide.runPython(codeInput.value);
+      withPyodideTimeout(pyodide, () => {
+        pyodide.runPython(codeInput.value);
+      });
       const fn = pyodide.globals.get("fix_name");
       if (!fn) {
         status.textContent = "Chưa thấy hàm fix_name(text).";
         return;
       }
-      const resultProxy = fn(BROKEN_NAME);
+      const resultProxy = withPyodideTimeout(pyodide, () => fn(BROKEN_NAME));
       const resultText = String(resultProxy);
       if (resultProxy?.destroy) {
         resultProxy.destroy();
@@ -199,7 +211,11 @@ export default function initGame(root, { pyodide } = {}) {
         ui.playWrong();
       }
     } catch (error) {
-      status.textContent = "Có lỗi trong code.";
+      if (isPyodideTimeout(error)) {
+        status.textContent = "Code chạy quá lâu. Hãy kiểm tra vòng lặp.";
+      } else {
+        status.textContent = "Có lỗi trong code.";
+      }
       logLine(String(error));
     }
   });

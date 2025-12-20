@@ -2,6 +2,11 @@
 // Copy this file into src/content/<course>/<lesson>/index.js and edit.
 
 import Phaser from "phaser";
+import { setupCodeFullscreen } from "../../shared/codeFullscreen.js";
+import {
+  isPyodideTimeout,
+  withPyodideTimeout,
+} from "../../shared/pyodideTimeout.js";
 
 export default function initTemplate(root, { pyodide } = {}) {
   root.innerHTML = `
@@ -20,7 +25,10 @@ export default function initTemplate(root, { pyodide } = {}) {
         <div class="lesson-panel code-panel">
           <h3>Code</h3>
           <textarea class="code-editor" spellcheck="false"></textarea>
-          <button class="primary">Submit</button>
+          <div class="code-actions">
+            <button class="primary">Submit</button>
+            <button class="code-toggle" type="button">Phóng to</button>
+          </div>
           <p class="lesson-summary">Hướng dẫn ngắn ở đây.</p>
         </div>
         <div class="lesson-panel output-panel">Output...</div>
@@ -28,6 +36,9 @@ export default function initTemplate(root, { pyodide } = {}) {
     </div>
   `;
 
+  const status = root.querySelector(".game-status");
+  const output = root.querySelector(".output-panel");
+  const submitButton = root.querySelector(".primary");
   const codeInput = root.querySelector(".code-editor");
   if (codeInput) {
     codeInput.addEventListener("keydown", (event) => {
@@ -43,9 +54,42 @@ export default function initTemplate(root, { pyodide } = {}) {
     });
   }
 
+  setupCodeFullscreen(root);
+
   if (!pyodide) {
+    if (status) {
+      status.textContent = "Pyodide chưa sẵn sàng.";
+    }
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.classList.add("disabled");
+    }
     return;
   }
+
+  const logLine = (text) => {
+    if (!output) {
+      return;
+    }
+    const line = document.createElement("div");
+    line.textContent = text;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  };
+
+  const resetOutput = () => {
+    if (output) {
+      output.textContent = "";
+    }
+  };
+
+  pyodide.setStdout({
+    batched: (text) => {
+      if (text.trim()) {
+        logLine(text.trim());
+      }
+    },
+  });
 
   const baseWidth = 720;
   const baseHeight = 520;
@@ -77,6 +121,30 @@ export default function initTemplate(root, { pyodide } = {}) {
 
   const playCorrect = () => correctSound && correctSound.play();
   const playWrong = () => wrongSound && wrongSound.play();
+
+  if (submitButton && codeInput) {
+    submitButton.addEventListener("click", () => {
+      resetOutput();
+      if (status) {
+        status.textContent = "Đang chạy code...";
+      }
+      try {
+        withPyodideTimeout(pyodide, () => {
+          pyodide.runPython(codeInput.value);
+        });
+        if (status) {
+          status.textContent = "Chạy xong. Hãy kiểm tra kết quả.";
+        }
+      } catch (error) {
+        if (status) {
+          status.textContent = isPyodideTimeout(error)
+            ? "Code chạy quá lâu. Hãy kiểm tra vòng lặp."
+            : "Có lỗi trong code.";
+        }
+        logLine(String(error));
+      }
+    });
+  }
 
   return { playCorrect, playWrong };
 }

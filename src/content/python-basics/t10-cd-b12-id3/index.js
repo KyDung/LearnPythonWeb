@@ -1,4 +1,9 @@
 import Phaser from "phaser";
+import { setupCodeFullscreen } from "../../../shared/codeFullscreen.js";
+import {
+  isPyodideTimeout,
+  withPyodideTimeout,
+} from "../../../shared/pyodideTimeout.js";
 
 const FOOD_LIST =
   "Pizza&Sushi&Burger&Phở&Bún chả&Bánh mì&Ramen&Tacos&Paella&Lasagna&Spaghetti Carbonara&Pad Thai&Tom Yum&Curry Ấn Độ&Butter Chicken&Kebab&Shawarma&Peking Duck&Dim Sum&Hotpot&Bibimbap&Kimchi&Bulgogi&Gimbap&Miso Soup&Udon&Tempura&Okonomiyaki&Takoyaki&Sashimi&Croissant&Baguette&Crêpe&Ratatouille&Coq au Vin&Beef Bourguignon&Fish and Chips&Shepherd's Pie&Roast Beef&Apple Pie&Hamburger Steak&Fried Chicken&Mac and Cheese&Clam Chowder&Lobster Roll&Caesar Salad&Greek Salad&Hummus&Falafel&Baklava&Couscous&Tagine&Jollof Rice&Egusi Soup&Fufu&Ceviche&Empanada&Arepa&Feijoada&Churrasco&Pão de Queijo&Tiramisu&Risotto&Gnocchi&Gelato&Panna Cotta&Biryani&Samosa&Naan&Dal&Satay&Nasi Goreng&Rendang&Laksa&Char Kway Teow&Hainanese Chicken Rice&Chili con Carne&Burrito&Quesadilla&Nachos&Pancakes&Waffles&French Toast&Omelette&Quiche&Dumplings&Pierogi&Goulash&Schnitzel&Pretzel&Sauerbraten&Pâté&Fondue&Raclette&Borscht&Pelmeni&Stroganoff&Pirozhki&Tandoori Chicken&Ice Cream";
@@ -36,7 +41,10 @@ def has_pho(text):
     # Kết thúc
     return result
 </textarea>
-        <button class="primary" id="submit-code">Submit</button>
+        <div class="code-actions">
+          <button class="primary" id="submit-code">Submit</button>
+          <button class="code-toggle" type="button">Phóng to</button>
+        </div>
       </div>
       <div class="lesson-panel output-panel" id="output"></div>
     </aside>
@@ -75,6 +83,8 @@ export default function initGame(root, { pyodide } = {}) {
     codeInput.value = `${value.slice(0, start)}    ${value.slice(end)}`;
     codeInput.selectionStart = codeInput.selectionEnd = start + 4;
   });
+
+  setupCodeFullscreen(root);
 
   const startPhaser = () => {
     if (phaserGame) {
@@ -160,13 +170,15 @@ export default function initGame(root, { pyodide } = {}) {
     resetOutput();
     status.textContent = "Đang chấm bài...";
     try {
-      pyodide.runPython(codeInput.value);
+      withPyodideTimeout(pyodide, () => {
+        pyodide.runPython(codeInput.value);
+      });
       const fn = pyodide.globals.get("has_pho");
       if (!fn) {
         status.textContent = "Chưa thấy hàm has_pho(text).";
         return;
       }
-      const resultProxy = fn(FOOD_LIST);
+      const resultProxy = withPyodideTimeout(pyodide, () => fn(FOOD_LIST));
       const resultValue = String(resultProxy).toLowerCase() === "true";
       if (resultProxy?.destroy) {
         resultProxy.destroy();
@@ -182,7 +194,11 @@ export default function initGame(root, { pyodide } = {}) {
         ui.playWrong();
       }
     } catch (error) {
-      status.textContent = "Có lỗi trong code.";
+      if (isPyodideTimeout(error)) {
+        status.textContent = "Code chạy quá lâu. Hãy kiểm tra vòng lặp.";
+      } else {
+        status.textContent = "Có lỗi trong code.";
+      }
       logLine(String(error));
     }
   });

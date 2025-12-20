@@ -512,8 +512,9 @@ main {
 .lesson-side {
   display: grid;
   gap: 16px;
-  grid-template-rows: 2fr 1fr;
+  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
   min-height: 520px;
+  height: 520px;
 }
 
 .lesson-panel {
@@ -523,8 +524,42 @@ main {
   box-shadow: var(--shadow-soft);
   display: grid;
   gap: 12px;
+  min-height: 0;
 }
 
+.code-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.code-toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-700);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 600;
+}
+
+.code-panel.fullscreen {
+  position: fixed;
+  inset: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.code-panel.fullscreen .code-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.no-scroll {
+  overflow: hidden;
+}
 .lesson-panel h3 {
   margin: 0;
   font-family: "Space Grotesk", system-ui, sans-serif;
@@ -621,6 +656,8 @@ main {
   font-size: 0.9rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: auto;
+  max-height: 100%;
+  height: 100%;
 }
 
 .hint {
@@ -779,6 +816,7 @@ main {
   .lesson-side {
     min-height: auto;
     grid-template-rows: auto;
+    height: auto;
   }
 
   .phaser-frame {
